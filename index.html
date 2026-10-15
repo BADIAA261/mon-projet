@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dégradé – puzzle coulissant</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --mist: #E8EEF1;
+    --ink: #1B2A41;
+    --ink-soft: #52627A;
+    --panel: #F6F9FA;
+    --line: #CBD6DD;
+    --accent: #1B2A41;
+    --focus: #7B2D8E;
+    font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --mist: #162033;
+      --ink: #EAF0F4;
+      --ink-soft: #9FB0C4;
+      --panel: #1E2B42;
+      --line: #324560;
+      --accent: #EAF0F4;
+      --focus: #F4D35E;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--mist);
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 40px;
+  }
+  main { width: 100%; max-width: 520px; }
+  h1 {
+    margin: 0 0 6px;
+    font-size: clamp(2.4rem, 9vw, 3.6rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    background: linear-gradient(90deg, #1B998B, #F4D35E 40%, #EE6C4D 70%, #7B2D8E);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lead { margin: 0 0 20px; color: var(--ink-soft); font-size: 1.02rem; line-height: 1.45; max-width: 38ch; }
+
+  .stats { display: flex; gap: 10px; margin-bottom: 14px; }
+  .stat {
+    flex: 1; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px;
+  }
+  .stat span { display: block; font-size: .78rem; color: var(--ink-soft); }
+  .stat strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .board-wrap { position: relative; }
+  .board {
+    --n: 3;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 6px;
+    touch-action: manipulation;
+  }
+  .field { position: relative; width: 100%; height: 100%; }
+  .tile {
+    position: absolute; left: 0; top: 0;
+    width: calc(100% / var(--n));
+    height: calc(100% / var(--n));
+    padding: 3px;
+    border: 0; background: none; cursor: pointer;
+    transform: translate(calc(var(--c) * 100%), calc(var(--r) * 100%));
+    transition: transform .16s ease-out;
+    font: inherit;
+  }
+  .tile i {
+    display: grid; place-items: center;
+    width: 100%; height: 100%;
+    border-radius: 10px;
+    font-style: normal; font-weight: 800;
+    font-size: clamp(1.1rem, 6vw, 2rem);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .hide-numbers .tile i { color: transparent; }
+  .tile:focus-visible { outline: none; }
+  .tile:focus-visible i { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .win {
+    position: absolute; inset: 0;
+    display: none; place-items: center; text-align: center;
+    background: color-mix(in srgb, var(--mist) 78%, transparent);
+    border-radius: 16px;
+    backdrop-filter: blur(2px);
+  }
+  .win.show { display: grid; }
+  .win div { padding: 20px; }
+  .win h2 { margin: 0 0 6px; font-size: 1.8rem; font-weight: 800; }
+  .win p { margin: 0 0 14px; color: var(--ink-soft); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .seg button {
+    border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600;
+    padding: 9px 14px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--mist); }
+  .btn {
+    font: inherit; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--mist);
+    padding: 9px 16px; border-radius: 10px;
+  }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .spacer { flex: 1; }
+  .hint { margin-top: 14px; font-size: .85rem; color: var(--ink-soft); }
+
+  @media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Dégradé</h1>
+  <p class="lead">Fais glisser les tuiles pour reformer le dégradé de couleurs.</p>
+
+  <div class="stats" aria-live="off">
+    <div class="stat"><span>Coups</span><strong id="moves">0</strong></div>
+    <div class="stat"><span>Temps</span><strong id="time">0:00</strong></div>
+    <div class="stat"><span>Record</span><strong id="best">–</strong></div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board"><div class="field" id="field"></div></div>
+    <div class="win" id="win" role="status">
+      <div>
+        <h2>Bravo !</h2>
+        <p id="winText"></p>
+        <button class="btn" id="again">Rejouer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Taille de la grille">
+      <button data-size="3" aria-pressed="true">3×3</button>
+      <button data-size="4" aria-pressed="false">4×4</button>
+      <button data-size="5" aria-pressed="false">5×5</button>
+    </div>
+    <button class="btn" id="shuffle">Mélanger</button>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="toggleNum" aria-pressed="true">Numéros : oui</button>
+  </div>
+  <p class="hint">Touche une tuile pour la glisser vers la case vide, ou utilise les flèches du clavier.</p>
+</main>
+
+<script>
+(function () {
+  // Couleurs des 4 coins du dégradé (haut-gauche, haut-droite, bas-gauche, bas-droite)
+  var CORNERS = { tl: [27,153,139], tr: [244,211,94], bl: [123,45,142], br: [238,108,77] };
+
+  var boardEl = document.getElementById('board');
+  var fieldEl = document.getElementById('field');
+  var movesEl = document.getElementById('moves');
+  var timeEl = document.getElementById('time');
+  var bestEl = document.getElementById('best');
+  var winEl = document.getElementById('win');
+  var winText = document.getElementById('winText');
+
+  var n = 3, grid = [], tiles = {}, moves = 0, started = false, won = false;
+  var startTime = 0, timer = null, showNumbers = true;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function colorAt(x, y) {
+    var c = [0, 1, 2].map(function (k) {
+      var top = lerp(CORNERS.tl[k], CORNERS.tr[k], x);
+      var bot = lerp(CORNERS.bl[k], CORNERS.br[k], x);
+      return Math.round(lerp(top, bot, y));
+    });
+    return c;
+  }
+  function textColor(c) {
+    var l = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+    return l > 0.62 ? '#1B2A41' : '#FFFFFF';
+  }
+
+  function store(key, val) { try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch (e) { return null; } }
+
+  function fmtTime(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+  function updateBest() {
+    var b = store('degrade-best-' + n);
+    if (b) { var o = JSON.parse(b); bestEl.textContent = o.moves + ' · ' + fmtTime(o.time); }
+    else bestEl.textContent = '–';
+  }
+
+  function build() {
+    fieldEl.innerHTML = '';
+    tiles = {};
+    boardEl.style.setProperty('--n', n);
+    var total = n * n;
+    for (var id = 0; id < total - 1; id++) {
+      var x = (id % n) / (n - 1), y = Math.floor(id / n) / (n - 1);
+      var c = colorAt(x, y);
+      var b = document.createElement('button');
+      b.className = 'tile';
+      b.setAttribute('aria-label', 'Tuile ' + (id + 1));
+      b.innerHTML = '<i>' + (id + 1) + '</i>';
+      b.style.setProperty('--bg', 'rgb(' + c.join(',') + ')');
+      b.style.setProperty('--fg', textColor(c));
+      (function (tid) { b.addEventListener('click', function () { clickTile(tid); }); })(id);
+      fieldEl.appendChild(b);
+      tiles[id] = b;
+    }
+    grid = [];
+    for (var i = 0; i < total; i++) grid.push(i < total - 1 ? i : -1);
+    render();
+  }
+
+  function render() {
+    for (var i = 0; i < grid.length; i++) {
+      var id = grid[i];
+      if (id < 0) continue;
+      tiles[id].style.setProperty('--c', i % n);
+      tiles[id].style.setProperty('--r', Math.floor(i / n));
+    }
+    movesEl.textContent = moves;
+  }
+
+  function isSolved() {
+    for (var i = 0; i < grid.length - 1; i++) if (grid[i] !== i) return false;
+    return true;
+  }
+
+  // Déplace la/les tuiles entre la tuile à l'index i et la case vide (même ligne ou colonne).
+  function slide(i) {
+    var e = grid.indexOf(-1);
+    var ri = Math.floor(i / n), ci = i % n, re = Math.floor(e / n), ce = e % n;
+    if (ri !== re && ci !== ce) return false;
+    if (i === e) return false;
+    var step = ri === re ? (e > i ? 1 : -1) : (e > i ? n : -n);
+    var p = e;
+    while (p !== i) { grid[p] = grid[p - step]; p -= step; }
+    grid[i] = -1;
+    return true;
+  }
+
+  function clickTile(id) {
+    if (won) return;
+    if (!slide(grid.indexOf(id))) return;
+    afterMove();
+  }
+
+  function afterMove() {
+    moves++;
+    if (!started) { started = true; startTime = Date.now(); timer = setInterval(tick, 500); }
+    render();
+    if (isSolved()) win();
+  }
+
+  function tick() { timeEl.textContent = fmtTime(Math.floor((Date.now() - startTime) / 1000)); }
+
+  function win() {
+    won = true;
+    clearInterval(timer);
+    var t = Math.floor((Date.now() - startTime) / 1000);
+    timeEl.textContent = fmtTime(t);
+    var msg = moves + ' coups en ' + fmtTime(t) + '.';
+    var prev = store('degrade-best-' + n);
+    var better = !prev || moves < JSON.parse(prev).moves;
+    if (better) { store('degrade-best-' + n, JSON.stringify({ moves: moves, time: t })); msg += ' Nouveau record !'; }
+    winText.textContent = msg;
+    winEl.classList.add('show');
+    updateBest();
+  }
+
+  function shuffle() {
+    clearInterval(timer);
+    started = false; won = false; moves = 0;
+    timeEl.textContent = '0:00';
+    winEl.classList.remove('show');
+    // Mélange par coups légaux : la grille est toujours solvable.
+    var last = -1, total = n * n;
+    do {
+      for (var k = 0; k < total * 40; k++) {
+        var e = grid.indexOf(-1), opts = [];
+        var r = Math.floor(e / n), c = e % n;
+        if (r > 0) opts.push(e - n);
+        if (r < n - 1) opts.push(e + n);
+        if (c > 0) opts.push(e - 1);
+        if (c < n - 1) opts.push(e + 1);
+        opts = opts.filter(function (o) { return o !== last; });
+        var pick = opts[Math.floor(Math.random() * opts.length)];
+        last = e;
+        grid[e] = grid[pick]; grid[pick] = -1;
+      }
+    } while (isSolved());
+    render();
+    updateBest();
+  }
+
+  // Contrôles
+  document.getElementById('shuffle').addEventListener('click', shuffle);
+  document.getElementById('again').addEventListener('click', shuffle);
+
+  var sizeBtns = document.querySelectorAll('[data-size]');
+  sizeBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      n = parseInt(b.dataset.size, 10);
+      sizeBtns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      build(); shuffle();
+    });
+  });
+
+  var numBtn = document.getElementById('toggleNum');
+  numBtn.addEventListener('click', function () {
+    showNumbers = !showNumbers;
+    boardEl.classList.toggle('hide-numbers', !showNumbers);
+    numBtn.setAttribute('aria-pressed', showNumbers);
+    numBtn.textContent = 'Numéros : ' + (showNumbers ? 'oui' : 'non');
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (won) return;
+    var e = grid.indexOf(-1), r = Math.floor(e / n), c = e % n, from = -1;
+    // La flèche indique le sens du déplacement de la tuile.
+    if (ev.key === 'ArrowUp' && r < n - 1) from = e + n;
+    else if (ev.key === 'ArrowDown' && r > 0) from = e - n;
+    else if (ev.key === 'ArrowLeft' && c < n - 1) from = e + 1;
+    else if (ev.key === 'ArrowRight' && c > 0) from = e - 1;
+    else return;
+    ev.preventDefault();
+    if (slide(from)) afterMove();
+  });
+
+  build();
+  shuffle();
+})();
+</script>
+</body>
+</html>
